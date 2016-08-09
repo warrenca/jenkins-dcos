@@ -5,10 +5,13 @@ Reconfigures a Jenkins master running in Docker at container runtime.
 
 from __future__ import print_function
 
+import json
 import os
 import re
+import requests
 import subprocess
 import sys
+import uuid
 import xml.etree.ElementTree as ET
 
 
@@ -173,6 +176,45 @@ def main():
         marathon_jenkins_port,
         jenkins_app_context)
 
+def postflight():
+    try:
+        jenkins_mesos_principal = os.environ['JENKINS_MESOS_PRINCIPAL']
+        jenkins_mesos_secret = os.environ['JENKINS_MESOS_SECRET']
+        marathon_host = os.environ['HOST']
+        marathon_nginx_port = os.environ['PORT0']
+    except KeyError:
+        # Since each of the environment variables above are set either in the
+        # DCOS marathon.json or by Marathon itself, the user should never get
+        # to this point.
+        print("ERROR: missing one or more required environment variables.")
+        return 1
+
+    if (jenkins_mesos_principal != "" and jenkins_mesos_secret != ""):
+	    # optional environment variables
+	    jenkins_root_url = os.getenv(
+	            'JENKINS_ROOT_URL',
+	            "http://{}:{}".format(marathon_host, marathon_nginx_port))
+
+	    credentials_id = uuid.uuid4()
+
+	    create_credentials(jenkins_root_url, credentials_id, jenkins_mesos_principal, jenkins_mesos_secret)
+
+	    firstrun = is_firstrun(jenkins_home_dir)
+	    jenkins_data_dir = jenkins_staging_dir if firstrun else jenkins_home_dir
+
+	    tree, root = _get_xml_root(os.path.join(jenkins_data_dir, 'config.xml'))
+	    mesos = root.find('./clouds/org.jenkinsci.plugins.mesos.MesosCloud')
+
+	    _find_and_set(mesos, './credentialsId', credentials_id)
+
+
+	def create_credentials(jenkins_url, id, username, password):
+	    credential = { 'credentials' : { 'scope' : 'GLOBAL', 'id' : id, 'username' : username, 'password' : password, 'description' : id, '$class' : 'com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl'} }
+	    data = {'json' : json.dumps(credential) }
+	    headers = auth_func({})
+	    post_url = "{}/credential-store/domain/_/createCredentials".format(jenkins_url)
+	    r = requests.post(post_url, headers=headers, data=data, verify=False)
+
 
 def _get_xml_root(config_xml):
     """Return the ET tree and root XML element.
@@ -200,6 +242,7 @@ def _find_and_set(element, term, new_text):
     """
     element.find(term).text = new_text
 
-
-if __name__ == '__main__':
+if len(sys.argv) == 2 and sys.argv[2] == '--postflight':
+    sys.exit(postflight())
+elif __name__ == '__main__':
     sys.exit(main())

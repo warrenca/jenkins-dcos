@@ -16,7 +16,9 @@ ENV JENKINS_FOLDER /usr/share/jenkins/
 ENV JAVA_HOME "/usr/lib/jvm/java-7-openjdk-amd64"
 
 RUN apt-get update
-RUN apt-get install -y git python zip curl default-jre jq gradle ant maven
+RUN apt-get install -y git python zip curl default-jre jq gradle ant maven python-pip
+RUN pip install -U pip
+RUN pip install requests
 
 RUN mkdir -p /var/log/nginx/jenkins
 COPY conf/nginx/nginx.conf /etc/nginx/nginx.conf
@@ -46,4 +48,10 @@ java ${JVM_OPTS}                                    \
     --ajp13Port=-1                                  \
     --httpListenAddress=127.0.0.1                   \
     --ajp13ListenAddress=127.0.0.1                  \
-    --prefix=${JENKINS_CONTEXT}
+    --prefix=${JENKINS_CONTEXT}                     
+
+CMD /usr/local/jenkins/bin/bootstrap.py --postflight
+
+# TODO: Restart Jenkins after running postflight steps (iff credentials have been added?). the best way may be through the Jenkins
+# CLI jar (which we might be able to include in the repo or reach from the  "/jnlpJars/jenkins-cli.jar" endpoint in Jenkins). 
+# java -jar jenkins-cli.jar -s http://<jenkins-server>/ restart
