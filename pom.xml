@@ -65,8 +65,8 @@
 		<branch-api.version>1.10</branch-api.version>
 		<cvs.version>2.12</cvs.version>
 		<ghprb.version>1.33.1</ghprb.version>
-		<git.version>2.5.3</git.version>
-		<git-client.version>1.21.0</git-client.version>
+		<git.version>3.0.0</git.version>
+		<git-client.version>2.0.0</git-client.version>
 		<git-server.version>1.7</git-server.version>
 		<github.version>1.21.1</github.version>
 		<github-api.version>1.77</github-api.version>
